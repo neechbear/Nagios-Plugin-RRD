@@ -10,7 +10,7 @@ SYNOPSIS
          );
      
  $rrd->add_rule(
-             source => "",
+             ds => "",
              threshold => "",
              result => ""
          );
@@ -20,10 +20,38 @@ SYNOPSIS
 DESCRIPTION
 METHODS
   new
+     my $rrd = Nagios::Plugin::RRD->new(
+             rrd => "/path/filename.rrd",
+             die_on_unknown => 1,
+         );
+
+  last
+     my $last_updated = $rrd->last;
+
+  sources
+     my @sources = $rrd->sources;
+
   add_rule
+     my @sources = $rrd->sources;
+     for my $ds (@sources) {
+         $rrd->add_rule(
+                 ds => $ds,
+                 rule => "",
+                 result => "CRITICAL",
+             );
+     }
+
   result
+     my ($rtn,$msg) = $rrd->result;
+     print "$msg\n";
+     exit $rtn;
+
+SEE ALSO
+    <http://nagiosplug.sourceforge.net/developer-guidelines.html>,
+    Nagios::Plugin::Functions, Nagios::Plugin, RRD::Simple
+
 VERSION
-    $Id: RRD.pm 948 2007-02-11 18:54:23Z nicolaw $
+    $Id: RRD.pm 950 2007-02-11 20:40:31Z nicolaw $
 
 AUTHOR
     Nicola Worthington <nicolaw@cpan.org>
