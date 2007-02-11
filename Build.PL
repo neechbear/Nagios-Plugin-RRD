@@ -15,7 +15,9 @@ $build = Module::Build->new(
 
 		requires => {
 			'Carp'         => 0, # 1.04
+			'Scalar::Util' => 0,
 			'RRDs'         => 0,
+			'Nagios::Plugin::Functions' => '0.15',
 		},
 
 		build_requires => {

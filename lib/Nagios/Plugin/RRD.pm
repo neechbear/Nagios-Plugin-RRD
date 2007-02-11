@@ -26,6 +26,7 @@ use 5.6.1;
 use strict;
 use warnings;
 use RRDs;
+use Nagios::Plugin::Functions qw(nagios_exit nagios_die check_messages);
 use Scalar::Util qw(refaddr);
 use Carp qw(croak cluck carp confess);
 use vars qw($VERSION $DEBUG);
@@ -50,7 +51,7 @@ sub new {
 	my $stor = $objstore->{refaddr($self)};
 
 	# Define what parameters are valid for this constructor
-	$stor->{validkeys} = [qw(password account pin number timeout cache_ttl)];
+	$stor->{validkeys} = [qw(rrd die_on_unknown)];
 	my $validkeys = join('|',@{$stor->{validkeys}});
 
 	# Only accept sensible known parameters from punters
@@ -59,22 +60,22 @@ sub new {
 	cluck('Unrecognised parameters passed: '.join(', ',@invalidkeys))
 		if @invalidkeys && $^W;
 
-	# Set some default values
-	delete $stor->{timeout} if !defined $stor->{timeout} || $stor->{timeout} !~ /^[1-9]\d*$/;
-	$stor->{timeout} ||= 15; # 15 seconds
-	delete $stor->{cache_ttl} if !defined $stor->{cache_ttl} || $stor->{cache_ttl} !~ /^\d+$/;
-	$stor->{cache_ttl} ||= 5; # Cache data for 5 seconds
-	$stor->{'user-agent'} ||= sprintf('Mozilla/5.0 (X11; U; Linux i686; '.
-				'en-US; rv:1.8.1.1) Gecko/20060601 Firefox/2.0.0.1 (%s %s)',
-				__PACKAGE__, $VERSION);
+	# Set default values
+	$stor->{die_on_unknown} ||= 0;
 
-	# Create LWP object
-	my $ua = new LWP::UserAgent;
-	$ua->env_proxy;
-	$ua->agent($stor->{'user-agent'});
-	$ua->timeout($stor->{timeout});
-	$ua->max_size(1024 * 200); # Hard code at 200KB
-	$stor->{ua} = $ua;
+	# Create empty result sets
+	$stor->{unknown}  = [];
+	$stor->{critical} = [];
+	$stor->{warning}  = [];
+	$stor->{ok}       = [];
+
+	# If the RRD file does not exist
+	$stor->{rrd} ||= '';
+	unless (-e $stor->{rrd}) {
+		my $msg = "RRD file '$stor->{rrd}' does not exist";
+		push @{$stor->{unknown}}, $msg;
+		nagios_die($msg) if $stor->{die_on_unknwon};
+	}
 
 	DUMP('$self',$self);
 	DUMP('$stor',$stor);
@@ -86,19 +87,41 @@ sub add_rule {
 	my $self = shift;
 	croak 'Not called as a method by parent object'
 		unless ref $self && UNIVERSAL::isa($self, __PACKAGE__);
-
-	# Retrieve our object data stor and merge
-	# parameters from this method and the constructor
 	my $stor = $objstore->{refaddr($self)};
-	my %params = @_;
-	for my $k (@{$stor->{validkeys}}) {
-		$params{$k} = $stor->{$k}
-			unless defined $params{$k};
-	}
+
+}
+
+
+sub sources {
+	my $self = shift;
+	croak 'Not called as a method by parent object'
+		unless ref $self && UNIVERSAL::isa($self, __PACKAGE__);
+	my $stor = $objstore->{refaddr($self)};
+
+}
+
+
+sub last {
+	my $self = shift;
+	croak 'Not called as a method by parent object'
+		unless ref $self && UNIVERSAL::isa($self, __PACKAGE__);
+	my $stor = $objstore->{refaddr($self)};
+
 }
 
 
 sub result {
+	my $self = shift;
+	croak 'Not called as a method by parent object'
+		unless ref $self && UNIVERSAL::isa($self, __PACKAGE__);
+	my $stor = $objstore->{refaddr($self)};
+
+	return check_messages(
+			'critical' => $stor->{critical},
+			'warning'  => $stor->{warning},
+			'ok'       => $stor->{ok},
+			'join'     => ' ',
+		);
 }
 
 
@@ -108,6 +131,14 @@ sub result {
 #
 # Private methods
 #
+
+sub _read_rrd {
+
+}
+
+
+
+
 
 sub DESTROY {
 	my $self = shift;
@@ -166,9 +197,18 @@ Nagios::Plugin::RRD - Create RRD threshold Nagios plugins
 
 =head2 new
 
+=head2 last
+
+=head2 sources
+
 =head2 add_rule
 
 =head2 result
+
+=head1 SEE ALSO
+
+L<http://nagiosplug.sourceforge.net/developer-guidelines.html>,
+L<Nagios::Plugin::Functions>, L<Nagios::Plugin>, L<RRD::Simple>
 
 =head1 VERSION
 
