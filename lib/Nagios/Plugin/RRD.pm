@@ -89,6 +89,14 @@ sub add_rule {
 		unless ref $self && UNIVERSAL::isa($self, __PACKAGE__);
 	my $stor = $objstore->{refaddr($self)};
 
+	# Only accept sensible known parameters from punters
+	my @invalidkeys = grep(!/^(ds|rule|result)$/,
+		grep($_ ne 'validkeys',keys %{$stor}));
+	delete $stor->{$_} for @invalidkeys;
+	cluck('Unrecognised parameters passed: '.join(', ',@invalidkeys))
+		if @invalidkeys && $^W;
+
+
 }
 
 
@@ -98,6 +106,23 @@ sub sources {
 		unless ref $self && UNIVERSAL::isa($self, __PACKAGE__);
 	my $stor = $objstore->{refaddr($self)};
 
+	my @ds;
+	if (@{$stor->{sources}}) {
+		@ds = @{$stor->{sources}};
+
+	} else {
+		my $info = RRDs::info($stor->{rrd});
+		my $error = RRDs::error();
+		croak($error) if $error;
+
+		foreach (keys %{$info}) {
+			if (/^ds\[(.+)?\]\.type$/) {
+				push @ds, $1;
+			}
+		}
+	}
+
+	return wantarray ? @ds : \@ds;
 }
 
 
@@ -107,6 +132,10 @@ sub last {
 		unless ref $self && UNIVERSAL::isa($self, __PACKAGE__);
 	my $stor = $objstore->{refaddr($self)};
 
+	my $last = RRDs::last($stor->{rrd});
+	my $error = RRDs::error();
+	croak($error) if $error;
+	return $last;
 }
 
 
@@ -184,7 +213,7 @@ Nagios::Plugin::RRD - Create RRD threshold Nagios plugins
      );
  
  $rrd->add_rule(
-         source => "",
+         ds => "",
          threshold => "",
          result => ""
      );
@@ -197,13 +226,35 @@ Nagios::Plugin::RRD - Create RRD threshold Nagios plugins
 
 =head2 new
 
+ my $rrd = Nagios::Plugin::RRD->new(
+         rrd => "/path/filename.rrd",
+         die_on_unknown => 1,
+     );
+
 =head2 last
+
+ my $last_updated = $rrd->last;
 
 =head2 sources
 
+ my @sources = $rrd->sources;
+
 =head2 add_rule
 
+ my @sources = $rrd->sources;
+ for my $ds (@sources) {
+     $rrd->add_rule(
+             ds => $ds,
+             rule => "",
+             result => "CRITICAL",
+         );
+ }
+
 =head2 result
+
+ my ($rtn,$msg) = $rrd->result;
+ print "$msg\n";
+ exit $rtn;
 
 =head1 SEE ALSO
 
